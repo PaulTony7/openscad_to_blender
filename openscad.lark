@@ -1,44 +1,141 @@
 """
  object();
  variable = value;
- operator()   action();
- operator() { action();    action(); }
- operator()   operator() { action(); action(); }
- operator() { operator()   action();
-              operator() { action(); action(); } }
+ action() operator();
+ { action();    action(); } operator();
+ { action(); action(); } operator()   operator();
+ { action() operator();   
+   { action(); action(); } operator() } operator(); 
 """
-from lark import Lark
+from lark import Lark, Tree, Token
+from numpy import array
 openscad_parser = Lark(r"""
 start: instruction+
 
-instruction: action ";"
-|            operator+ action ";"
-|            assign ";"
-|            operator+ "{" instruction+ "}"
-action: OBJECT "(" (NUMBER | vector) ")"
-operator: TRANSFORM "(" (NUMBER | vector | string)")"
-assign: IDENTIFIER "=" (NUMBER | vector | string)
-vector: "[" NUMBER ["," NUMBER]+"]"
+instruction: action ";"                              
+|            action operator+ ";"           
+|            IDENTIFIER "=" (expression) ";"     -> assign
+|            "{" instruction+ "}" operator+ ";"                     -> block
+
+action: OBJECT "(" (INTEGER | FLOAT | vector | IDENTIFIER) ")"
+
+operator: TRANSFORM "(" (INTEGER | FLOAT | vector | IDENTIFIER)")"           -> transform
+|         "color" "(" (string | INTEGER | FLOAT | vector | IDENTIFIER) ")"   -> color
+
+vector: "[" INTEGER ["," INTEGER]+"]" | "[" FLOAT ["," FLOAT]+"]"
+expression: (INTEGER | FLOAT | vector | string | IDENTIFIER)                 -> value
+|           "-" expression                                          -> negation
+|           expression "+" expression                               -> addition
+|           expression "-" expression                               -> subtraction
+|           expression "*" expression                               -> multiplication
+|           expression "/" expression                               -> division
+|           "(" expression ")"                                      -> parentheses
 
 OBJECT: "cube"|"square"|"circle"|"sphere"|"cylinder"
-TRANSFORM: "translate"|"rotate"|"scale"|"color"
+TRANSFORM: "translate"|"rotate"|"scale"
 
 string : ESCAPED_STRING
 
 %import common.WORD -> IDENTIFIER
-%import common.INT -> NUMBER
+%import common.INT -> INTEGER
+%import common.FLOAT -> FLOAT
 %import common.ESCAPED_STRING
 %import common.WS
 %ignore WS
 """)
 
+#===========================================
+
 text = """  
-cube(5);
+cube(5.0);
 x = 4;
-rotate(40) square([5,10]);
-translate([10,5]) { circle(5); square(4); }
-rotate(60) color("red") { circle(5); square(4); }
-color("blue") { translate([5,3,0]) sphere(5); rotate([45,0,45]) { cylinder(10); cube([5,6,7]); } }
+x = 2.5 * x + 2;
+z = [5, 6, 7];
+y = "blue";
+square([5,10]) rotate(40) color("blue");
+{ circle(5); square(4); } translate([10,5]);
+{ circle(5); square(4); } rotate(60) color("red");
+{ sphere(5) translate([5,3,0]); { cylinder(10); cube(z); } rotate([45,0,45]); } color(y); 
 """
 
 print(openscad_parser.parse(text).pretty())
+
+
+variables = {}
+def run_instruction(t):
+    if(t.data == 'assign'):
+        assign_implementation(t)
+    elif t.data == "block" or t.data == "instruction":
+        block_implementation(t)
+    elif t.data == "color":
+        color_implementation(t)
+    elif t.data == "action":
+       action_implementation(t)
+    elif t.data == "transform":
+        transform_implementation(t)
+    else:
+        raise SyntaxError('Unknown instruction: %s' % t.data)
+
+def action_implementation(t):
+    if type(t.children[1]) == Tree:
+        print(f"creating {t.children[0]} of size", *t.children[1].children)
+    else:
+        print(f"creating {t.children[0]} of size {value_breakdown(t.children[1])}")
+
+def transform_implementation(t):
+    if type(t.children[1]) == Tree:
+        print(f"transform operation {t.children[0]} with parameters", *t.children[1].children)
+    else:
+        print(f"transform operation {t.children[0]} with parameters {value_breakdown(t.children[1])}")
+
+def color_implementation(t):
+    if type(t.children[0]) == Token:
+        print(f"applying color {value_breakdown(t.children[0])}")
+    else:
+        print(f"applying color", *t.children[0].children)
+
+def block_implementation(t):
+    for cmd in t.children:
+        run_instruction(cmd)
+
+def assign_implementation(t):
+    if type(t.children[1]) is Tree:
+        res = expression_breakdown(t.children[1])
+        variables[t.children[0]] = res
+        print(f"assigning {t.children[0]} value {res}")
+    else:
+        variables[t.children[0]] = t.children[1]
+        print(f"assigning {t.children[0]} value {t.children[1]}")
+
+
+def expression_breakdown(t):
+    if t.data == "value":
+        return value_breakdown(t.children[0])
+    elif t.data == "addition":
+        return expression_breakdown(t.children[0]) + expression_breakdown(t.children[1]) 
+    elif t.data == "multiplication":
+        return expression_breakdown(t.children[0]) * expression_breakdown(t.children[1]) 
+    elif t.data == "division":
+        return expression_breakdown(t.children[0]) / expression_breakdown(t.children[1]) 
+    elif t.data == "subtraction":
+        return expression_breakdown(t.children[0]) - expression_breakdown(t.children[1]) 
+    elif t.data == "parentheses":
+        return expression_breakdown(t.children[0])
+    elif t.data == "negation":
+        return -expression_breakdown(t.children[0])
+    elif t.data == "string":
+        return t.children[0]
+def value_breakdown(t):
+    if type(t) == Tree and t.data == "string":
+        return t.children[0]
+    elif type(t) == Tree and t.data == "vector":
+        return array([int(x) for x in t.children])
+    elif t.type == "INTEGER":
+        return int(t)
+    elif t.type == "FLOAT":
+        return float(t)
+    elif t.type == "IDENTIFIER":
+        return variables[t.value]
+
+for inst in openscad_parser.parse(text).children:
+    run_instruction(inst)
