@@ -1,0 +1,44 @@
+"""
+ object();
+ variable = value;
+ operator()   action();
+ operator() { action();    action(); }
+ operator()   operator() { action(); action(); }
+ operator() { operator()   action();
+              operator() { action(); action(); } }
+"""
+from lark import Lark
+openscad_parser = Lark(r"""
+start: instruction+
+
+instruction: action ";"
+|            operator+ action ";"
+|            assign ";"
+|            operator+ "{" instruction+ "}"
+action: OBJECT "(" (NUMBER | vector) ")"
+operator: TRANSFORM "(" (NUMBER | vector | string)")"
+assign: IDENTIFIER "=" (NUMBER | vector | string)
+vector: "[" NUMBER ["," NUMBER]+"]"
+
+OBJECT: "cube"|"square"|"circle"|"sphere"|"cylinder"
+TRANSFORM: "translate"|"rotate"|"scale"|"color"
+
+string : ESCAPED_STRING
+
+%import common.WORD -> IDENTIFIER
+%import common.INT -> NUMBER
+%import common.ESCAPED_STRING
+%import common.WS
+%ignore WS
+""")
+
+text = """  
+cube(5);
+x = 4;
+rotate(40) square([5,10]);
+translate([10,5]) { circle(5); square(4); }
+rotate(60) color("red") { circle(5); square(4); }
+color("blue") { translate([5,3,0]) sphere(5); rotate([45,0,45]) { cylinder(10); cube([5,6,7]); } }
+"""
+
+print(openscad_parser.parse(text).pretty())
