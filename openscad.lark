@@ -42,7 +42,9 @@ string : ESCAPED_STRING
 %import common.ESCAPED_STRING
 %import common.WS
 %ignore WS
-""")
+%import common.SH_COMMENT
+%ignore SH_COMMENT
+""", parser='earley')
 
 #===========================================
 
