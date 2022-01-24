@@ -139,5 +139,6 @@ def value_breakdown(t):
     elif t.type == "IDENTIFIER":
         return variables[t.value]
 
-for inst in openscad_parser.parse(text).children:
-    run_instruction(inst)
+def parse_openscad(text):
+    for inst in openscad_parser.parse(text).children:
+        run_instruction(inst)
