@@ -136,7 +136,17 @@ def expression_breakdown(t):
         return expression_breakdown(t.children[0]) + expression_breakdown(t.children[1]) 
     elif t.data == "multiplication":
         return expression_breakdown(t.children[0]) * expression_breakdown(t.children[1]) 
-    elif t.data == "division":value
+    elif t.data == "division":
+        return expression_breakdown(t.children[0]) / expression_breakdown(t.children[1]) 
+    elif t.data == "subtraction":
+        return expression_breakdown(t.children[0]) - expression_breakdown(t.children[1]) 
+    elif t.data == "parentheses":
+        return expression_breakdown(t.children[0])
+    elif t.data == "negation":
+        return -expression_breakdown(t.children[0])
+    elif t.data == "string":
+        return t.children[0]
+        
 def value_breakdown(t):
     if type(t) == Tree and t.data == "string":
         return t.children[0]
@@ -247,5 +257,6 @@ def unregister():
 
     bpy.utils.unregister_class(TEXT_OT_run_scad)
     bpy.types.TEXT_HT_header.remove(draw)
+
 if __name__ == "__main__":
     register()
