@@ -1,12 +1,13 @@
 bl_info = {
     "name": "Add-on SCAD",
-    "blender": (3, 0, 0),
+    "blender": (3, 2, 0),
     "category": "Interface",
     "author": "Paul Kokot",
     "location": "Text Editor -> Header",
-    "version": (0, 0, 6)
+    "version": (0, 1, 7)
 }
 
+help("modules")
 import bpy
 from lark import Lark, Tree, Token
 from numpy import array, ndarray
@@ -181,10 +182,3 @@ def register():
 def unregister():
     bpy.utils.unregister_class(TEXT_OT_run_scad)
     bpy.types.TEXT_HT_header.remove(draw)
-
-# text = """x = [5,5,2];
-# y = 2;
-# x = x / y;
-
-# sphere(x) translate(x);"""
-# parse_openscad(text)
