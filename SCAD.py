@@ -27,6 +27,11 @@ class TEXT_OT_run_scad(bpy.types.Operator):
 variables = {}
 objects = {}
 materials = {}
+colors = {
+    '"red"': [1.0, 0.0, 0.0],
+    '"blue"': [0.0, 0.0, 1.0],
+    '"green"': [0.0, 1.0, 0.0]
+}
 
 def run_instruction(t):
     if(t.data == 'assign'):
@@ -90,12 +95,24 @@ def color_implementation(t):
             mat = create_material(x,y,z)
             for i in range(len(bpy.context.selected_objects)):
                 bpy.context.selected_objects[i].active_material = mat
+        elif type(parameter.value) == str:
+            for color in colors.keys():
+                if parameter == color:
+                    parameter = colors[color]
+                    x = parameter[0]
+                    y = parameter[1]
+                    z = parameter[2]
+                    mat = create_material(x,y,z)
+                    for i in range(len(bpy.context.selected_objects)):
+                        bpy.context.selected_objects[i].active_material = mat
+
 
 def check_material(name):
     for item in materials.keys():
         if item == name:
             return materials[item]
     return None
+
 def create_material(r, g, b):
     intr = int(r * 255)
     intg = int(g * 255)
@@ -146,7 +163,7 @@ def expression_breakdown(t):
         return -expression_breakdown(t.children[0])
     elif t.data == "string":
         return t.children[0]
-        
+
 def value_breakdown(t):
     if type(t) == Tree and t.data == "string":
         return t.children[0]
